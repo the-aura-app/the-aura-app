@@ -12,3 +12,17 @@ if (!anon_id) {
     anon_id = crypto.randomUUID();
     localStorage.setItem("aura_anon_id", anon_id);
 }
+
+function track(event, data = {}) {
+    posthog.capture(event, {
+        anon_id,
+        ...data
+    });
+}
+
+track("view_home");
+track("scan_aura", { color: "Emerald Green" });
+track("decode_analysis", { verdict: "low_effort" });
+
+track("app_loaded");
+track("daily_active");
