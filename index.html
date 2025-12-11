@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Aura | Gen Z IT Mystic</title>
+    
+    <!-- Fonts: 'Cinzel' for the mystical vibe, 'Inter' for readability -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- CSS VARIABLES & RESET --- */
+        :root {
+            --bg-color: #050505;
+            --text-main: #ffffff;
+            --text-muted: #a3a3a3;
+            --neon-purple: #b026ff;
+            --neon-pink: #ff00ff;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --border-glow: 0 0 10px rgba(176, 38, 255, 0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+            /* Subtle mystical gradient background */
+            background: radial-gradient(circle at 50% 10%, #1a0b2e 0%, #000000 70%);
+        }
+
+        /* --- MOBILE APP CONTAINER --- */
+        #app-container {
+            width: 100%;
+            max-width: 420px; /* Limits width on desktop to look like an app */
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* --- TYPOGRAPHY --- */
+        h1, h2 {
+            font-family: 'Cinzel', serif;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            background: linear-gradient(to right, var(--neon-purple), var(--neon-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px rgba(176, 38, 255, 0.3);
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 3rem;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* --- THE SCAN BUTTON --- */
+        .aura-btn {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(176,38,255,0.1) 0%, rgba(0,0,0,1) 70%);
+            border: 2px solid var(--neon-purple);
+            color: white;
+            font-family: 'Cinzel', serif;
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 0 20px var(--neon-purple), inset 0 0 20px var(--neon-purple);
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 10;
+            animation: pulse 3s infinite ease-in-out;
+        }
+
+        .aura-btn:active {
+            transform: scale(0.95);
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 20px var(--neon-purple), inset 0 0 20px var(--neon-purple); }
+            50% { box-shadow: 0 0 40px var(--neon-pink), inset 0 0 40px var(--neon-pink); }
+            100% { box-shadow: 0 0 20px var(--neon-purple), inset 0 0 20px var(--neon-purple); }
+        }
+
+        /* --- LOADING STATE --- */
+        .loading-container {
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        .loading-text {
+            font-family: 'Cinzel', serif;
+            margin-bottom: 1rem;
+            animation: flicker 1.5s infinite;
+        }
+
+        .progress-bar-wrapper {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--neon-purple), var(--neon-pink));
+            box-shadow: 0 0 10px var(--neon-purple);
+            transition: width 3s linear;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* --- RESULT CARD --- */
+        .result-card {
+            display: none; /* Hidden by default */
+            background: var(--glass-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 20px;
+            width: 100%;
+            text-align: center;
+            animation: fadeUp 0.8s ease-out;
+            border-top: 1px solid var(--neon-purple);
+        }
+
+        .result-title {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .result-text {
+            font-size: 1.25rem;
+            font-weight: 600;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+
+        .power-color-box {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* --- THE TRAP (UPSELL) --- */
+        .trap-container {
+            margin-top: 2rem;
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .trap-blur {
+            filter: blur(8px);
+            opacity: 0.5;
+            padding: 1.5rem;
+            background: #111;
+            user-select: none;
+        }
+
+        .trap-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: rgba(0,0,0,0.4);
+            z-index: 5;
+        }
+
+        .lock-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .trap-text {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--neon-pink);
+            text-shadow: 0 0 5px var(--neon-pink);
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Utility */
+        .hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        
+        <!-- HEADER -->
+        <header id="header-section">
+            <h1 id="greeting-title">The Aura</h1>
+            <p class="subtitle">Gen Z IT Mystic</p>
+        </header>
+
+        <!-- MAIN ACTION: BUTTON -->
+        <button id="scan-btn" class="aura-btn">
+            READ MY<br>AURA
+        </button>
+
+        <!-- LOADING STATE -->
+        <div id="loading-state" class="loading-container">
+            <p class="loading-text">Analyzing Github Commits...</p>
+            <div class="progress-bar-wrapper">
+                <div id="progress-fill" class="progress-bar"></div>
+            </div>
+        </div>
+
+        <!-- RESULTS SECTION -->
+        <div id="result-view" class="result-card">
+            <p class="result-title">Today's Vibe Check</p>
+            <p id="fortune-text" class="result-text">
+                <!-- Javascript will inject text here -->
+            </p>
+
+            <p class="result-title">Power Color</p>
+            <div id="color-pill" class="power-color-box">
+                <!-- Javascript will inject color here -->
+            </div>
+
+            <!-- THE TRAP (UPSELL) -->
+            <div class="trap-container" onclick="triggerUpsell()">
+                <div class="trap-blur">
+                    <h3>Career Forecast</h3>
+                    <p>Your promotion timeline looks incredibly promising if you avoid...</p>
+                </div>
+                <div class="trap-overlay">
+                    <div class="lock-icon">🔒</div>
+                    <div class="trap-text">Unlock Secret Insight (₹29)</div>
+                </div>
+            </div>
+
+            <p style="margin-top: 20px; font-size: 0.8rem; text-decoration: underline; cursor: pointer; opacity: 0.6;" onclick="resetApp()">Scan Again</p>
+        </div>
+
+    </div>
+
+    <script>
+        /* 
+        ========================================
+           CONTENT CONFIGURATION (EDIT HERE)
+        ========================================
+        */
+        
+        // Database of Fortunes/Compliments for Gen Z Women in IT
+        const auraDatabase = [
+            {
+                text: "Your code is cleaner than your skincare routine. You are radiating Senior Dev Energy today.",
+                color: "#b026ff", // Neon Purple
+                colorName: "Git Merge Purple"
+            },
+            {
+                text: "Main Character Energy detected. You will fix a bug today that has haunted the team for weeks.",
+                color: "#00ff9d", // Neon Green
+                colorName: "Bug Bash Green"
+            },
+            {
+                text: "Your boundaries are as strong as your firewall. No unnecessary meetings shall pass.",
+                color: "#ff0055", // Neon Red
+                colorName: "Error 404 Red"
+            },
+            {
+                text: "You are the documentation everyone wishes existed. Clear, precise, and absolutely iconic.",
+                color: "#00ccff", // Cyan
+                colorName: "Typescript Blue"
+            },
+            {
+                text: "Imposter syndrome is trying to connect, but your connection is secure. You belong here.",
+                color: "#ffd700", // Gold
+                colorName: "Production Gold"
+            },
+            {
+                text: "Your aesthetic is high-key intimidating in the best way. The interns are taking notes.",
+                color: "#ff00ff", // Magenta
+                colorName: "Hotfix Pink"
+            }
+        ];
+
+        // Fake loading messages to cycle through
+        const loadingMessages = [
+            "Scanning caffeine levels...",
+            "Analyzing commit history...",
+            "Checking Slack status...",
+            "Aligning chakras with CSS Grid...",
+            "Calculating vibe..."
+        ];
+
+        /* 
+        ========================================
+           APP LOGIC
+        ========================================
+        */
+
+        const scanBtn = document.getElementById('scan-btn');
+        const loadingState = document.getElementById('loading-state');
+        const progressFill = document.getElementById('progress-fill');
+        const loadingText = document.querySelector('.loading-text');
+        const resultView = document.getElementById('result-view');
+        const headerSection = document.getElementById('header-section');
+        const greetingTitle = document.getElementById('greeting-title');
+        
+        // 1. Time-Based Greeting Logic
+        function setTimeBasedTheme() {
+            const hour = new Date().getHours();
+            
+            if (hour >= 5 && hour < 12) {
+                greetingTitle.innerText = "Morning Glow Algorithm";
+            } else if (hour >= 12 && hour < 18) {
+                greetingTitle.innerText = "Priority Shield Mode";
+            } else {
+                greetingTitle.innerText = "Simp Radar: Active";
+            }
+        }
+
+        // 2. Scan Interaction
+        scanBtn.addEventListener('click', () => {
+            // UI Transition
+            scanBtn.classList.add('hidden');
+            headerSection.classList.add('hidden'); // Hide header to focus on scan
+            loadingState.style.display = 'flex';
+
+            // Randomize Loading Text
+            let msgIndex = 0;
+            const msgInterval = setInterval(() => {
+                loadingText.innerText = loadingMessages[msgIndex % loadingMessages.length];
+                msgIndex++;
+            }, 600);
+
+            // Start Progress Bar Animation
+            // We use a slight delay to ensure the DOM update triggers the transition
+            setTimeout(() => {
+                progressFill.style.width = '100%';
+            }, 50);
+
+            // After 3 Seconds, Show Result
+            setTimeout(() => {
+                clearInterval(msgInterval);
+                showResult();
+            }, 3000);
+        });
+
+        // 3. Show Result Logic
+        function showResult() {
+            loadingState.style.display = 'none';
+            resultView.style.display = 'block';
+
+            // Pick a random fortune
+            const randomIndex = Math.floor(Math.random() * auraDatabase.length);
+            const result = auraDatabase[randomIndex];
+
+            // Inject Data
+            document.getElementById('fortune-text').innerText = result.text;
+            
+            const colorPill = document.getElementById('color-pill');
+            colorPill.innerText = result.colorName;
+            colorPill.style.backgroundColor = result.color;
+            // Calculate contrast for text color (simple check)
+            colorPill.style.color = result.color === '#000000' ? '#fff' : '#000';
+            colorPill.style.boxShadow = `0 0 15px ${result.color}`;
+        }
+
+        // 4. The Trap (Upsell)
+        function triggerUpsell() {
+            alert("🔒 Premium Insight\n\nThis feature is coming in Version 2.0!\nStay mysterious.");
+        }
+
+        // 5. Reset App
+        function resetApp() {
+            resultView.style.display = 'none';
+            progressFill.style.width = '0%'; // Reset bar
+            scanBtn.classList.remove('hidden');
+            headerSection.classList.remove('hidden');
+            setTimeBasedTheme(); // Refresh time just in case
+        }
+
+        // Initialize on Load
+        window.addEventListener('DOMContentLoaded', setTimeBasedTheme);
+
+    </script>
+</body>
+</html>
