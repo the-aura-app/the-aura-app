@@ -1,6 +1,6 @@
 /**
  * The Aura App - Main Application JavaScript
- * Daily habit loop engine for women 25-35 in Indian IT culture
+ * Daily habit loop engine with Hook Model (Trigger → Action → Reward → Investment)
  */
 
 console.log("The Aura loaded successfully");
@@ -122,10 +122,8 @@ function getDailyInsight() {
     const savedInsight = localStorage.getItem("aura_insight_index");
 
     if (savedDate === today && savedInsight !== null) {
-        // Return same insight for the day
         return insights[parseInt(savedInsight)];
     } else {
-        // New day, new insight
         const insightIndex = Math.floor(Math.random() * insights.length);
         localStorage.setItem("aura_insight_date", today);
         localStorage.setItem("aura_insight_index", insightIndex);
@@ -134,20 +132,126 @@ function getDailyInsight() {
 }
 
 // ============================================
-// UTILITY: Track engagement for signup trigger
+// UTILITY: Generate variable aura score (HOOK MODEL: Variable Reward)
 // ============================================
-function incrementEngagement() {
-    let engagement = localStorage.getItem("aura_engagement_count");
-    engagement = engagement ? parseInt(engagement) + 1 : 1;
-    localStorage.setItem("aura_engagement_count", engagement);
-    return engagement;
+function generateAuraScore() {
+    return Math.floor(Math.random() * 60) + 40;
 }
+
+// ============================================
+// UTILITY: Get personalized affirmation
+// ============================================
+function getPersonalizedAffirmation(mood) {
+    if (!mood || !affirmations[mood]) {
+        mood = Object.keys(affirmations)[Math.floor(Math.random() * Object.keys(affirmations).length)];
+    }
+    return affirmations[mood][Math.floor(Math.random() * affirmations[mood].length)];
+}
+
+// ============================================
+// UTILITY: Calculate streak (HOOK MODEL: Investment)
+// ============================================
+async function updateStreak() {
+    const lastVisit = localStorage.getItem("aura_last_visit");
+    const today = new Date().toDateString();
+    let streak = parseInt(localStorage.getItem("aura_streak") || "0");
+
+    if (lastVisit !== today) {
+        const lastVisitDate = lastVisit ? new Date(lastVisit) : new Date();
+        const todayDate = new Date();
+        const diffTime = todayDate - lastVisitDate;
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+            streak += 1;
+        } else if (diffDays > 1) {
+            streak = 1;
+        }
+
+        localStorage.setItem("aura_streak", streak);
+        localStorage.setItem("aura_last_visit", today);
+
+        // Save streak to Supabase for signed-up users
+        if (isUserSignedUp()) {
+            const userData = getUserData();
+            try {
+                await db
+                    .from("users")
+                    .update({
+                        streak_count: streak,
+                        last_visit_date: today,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq("id", userData.id);
+            } catch (error) {
+                console.error("Error updating streak:", error);
+            }
+        }
+    }
+
+    return streak;
+}
+
+// ============================================
+// AFFIRMATIONS BY MOOD & INTENT
+// ============================================
+const affirmations = {
+    energized: [
+        "Channel this energy into something that matters to you.",
+        "This is your moment to shine. Use it.",
+        "Your momentum is real. Keep going."
+    ],
+    stressed: [
+        "You've handled hard things before. You'll handle this too.",
+        "This stress is temporary. You're stronger than it.",
+        "Take a breath. You're doing better than you think."
+    ],
+    confused: [
+        "Clarity comes from action, not overthinking.",
+        "You don't need all the answers right now.",
+        "Trust the process. The next step will reveal itself."
+    ],
+    lonely: [
+        "Your presence matters more than you know.",
+        "Solitude is not the same as loneliness. Use this time.",
+        "You are enough, exactly as you are."
+    ],
+    confident: [
+        "Keep this energy. The world needs it.",
+        "You're exactly where you need to be.",
+        "Trust yourself. You've earned this confidence."
+    ],
+    overwhelmed: [
+        "You don't have to do everything today.",
+        "One step at a time. You've got this.",
+        "Release what's not in your control."
+    ],
+    calm: [
+        "This clarity is your superpower. Hold onto it.",
+        "Calmness looks good on you.",
+        "You're in flow. Stay here."
+    ]
+};
 
 // ============================================
 // UTILITY: Check if user has already signed up
 // ============================================
 function isUserSignedUp() {
-    return localStorage.getItem("aura_user_signed_up") === "true";
+    return localStorage.getItem("aura_user_id") !== null;
+}
+
+// ============================================
+// UTILITY: Get user data from localStorage
+// ============================================
+function getUserData() {
+    return {
+        id: localStorage.getItem("aura_user_id"),
+        name: localStorage.getItem("aura_user_name"),
+        mood: localStorage.getItem("aura_user_mood"),
+        relationship_status: localStorage.getItem("aura_user_relationship"),
+        stress_level: localStorage.getItem("aura_user_stress"),
+        daily_intent: localStorage.getItem("aura_user_intent")
+    };
 }
 
 
@@ -162,20 +266,53 @@ document.addEventListener("DOMContentLoaded", () => {
 // MAIN APP INITIALIZATION
 // ============================================
 function initializeApp() {
+    const isSignedUp = isUserSignedUp();
+
     // Load greeting
     loadGreeting();
-    
-    // Load daily insight
+
+    // Load daily insight with variable reward
     loadInsight();
-    
+
     // Setup event listeners
     initializeEventListeners();
-    
-    // Check if should show signup prompt
-    checkSignupTrigger();
-    
-    // Track session
-    track("session_start");
+
+    if (isSignedUp) {
+        // Signed-up flow: show profile view
+        showProfileView();
+        loadPastAnalyses();
+    } else {
+        // New user flow: show signup prompt
+        checkSignupTrigger();
+    }
+
+    track("session_start", { is_signed_up: isSignedUp });
+}
+
+// ============================================
+// PROFILE VIEW (for signed-up users)
+// ============================================
+async function showProfileView() {
+    const userData = getUserData();
+    const streakSection = document.getElementById("streakSection");
+    const personalizationSection = document.getElementById("personalizationSection");
+
+    // Show streak counter (and update it)
+    const streak = await updateStreak();
+    streakSection.classList.remove("hidden");
+    document.getElementById("streakCount").textContent = `${streak} day streak`;
+
+    // Show personalization form
+    personalizationSection.classList.remove("hidden");
+
+    // Pre-fill values if available
+    if (userData.mood) document.getElementById("moodSelect").value = userData.mood;
+    if (userData.stress_level) {
+        document.getElementById("stressLevel").value = userData.stress_level;
+        updateStressLabel(userData.stress_level);
+    }
+    if (userData.relationship_status) document.getElementById("relationshipSelect").value = userData.relationship_status;
+    if (userData.daily_intent) document.getElementById("intentSelect").value = userData.daily_intent;
 }
 
 // ============================================
@@ -187,13 +324,20 @@ function loadGreeting() {
 }
 
 // ============================================
-// LOAD INSIGHT CARD
+// LOAD INSIGHT CARD (with Variable Reward)
 // ============================================
 function loadInsight() {
     const insight = getDailyInsight();
+    const auraScore = generateAuraScore();
+
     document.getElementById("insightTitle").textContent = insight.title;
     document.getElementById("insightDescription").textContent = insight.description;
-    track("insight_viewed", { insight_title: insight.title });
+    document.getElementById("auraScore").textContent = auraScore;
+
+    track("insight_viewed", { 
+        insight_title: insight.title,
+        aura_score: auraScore
+    });
 }
 
 // ============================================
@@ -204,31 +348,43 @@ function initializeEventListeners() {
     const saveBtn = document.getElementById("saveInsightBtn");
     const signupCtaBtn = document.getElementById("signupCtaBtn");
     const submitBtn = document.getElementById("submitBtn");
+    const savePersonalizationBtn = document.getElementById("savePersonalizationBtn");
+    const stressLevel = document.getElementById("stressLevel");
 
     refreshBtn.addEventListener("click", handleRefreshInsight);
     saveBtn.addEventListener("click", handleSaveInsight);
     signupCtaBtn?.addEventListener("click", handleSignupCta);
     submitBtn.addEventListener("click", handleFormSubmit);
+    savePersonalizationBtn?.addEventListener("click", handleSavePersonalization);
+    stressLevel?.addEventListener("input", (e) => updateStressLabel(e.target.value));
 }
 
 // ============================================
 // EVENT HANDLERS
 // ============================================
-function handleRefreshInsight() {
-    // Clear saved insight to get a new one
+async function handleRefreshInsight() {
     localStorage.removeItem("aura_insight_date");
     localStorage.removeItem("aura_insight_index");
     
     loadInsight();
     incrementEngagement();
     track("insight_refreshed");
+    
+    // If user is signed up, save this new insight
+    if (isUserSignedUp()) {
+        await saveDailyAnalysis();
+    }
 }
 
-function handleSaveInsight() {
+async function handleSaveInsight() {
     incrementEngagement();
     track("insight_saved");
     
-    // Show signup CTA after saving
+    // If user is signed up, save to daily_analyses
+    if (isUserSignedUp()) {
+        await saveDailyAnalysis();
+    }
+    
     checkSignupTrigger();
 }
 
@@ -241,11 +397,52 @@ function handleSignupCta() {
     track("signup_cta_clicked");
 }
 
+function updateStressLabel(value) {
+    const stressLabel = document.getElementById("stressLabel");
+    const labels = ["Low", "Low", "Low", "Medium", "Medium", "Medium", "High", "High", "High", "Very High"];
+    stressLabel.textContent = labels[parseInt(value) - 1] || "Medium";
+}
+
+async function handleSavePersonalization() {
+    const userData = getUserData();
+    const mood = document.getElementById("moodSelect").value;
+    const stress = document.getElementById("stressLevel").value;
+    const relationship = document.getElementById("relationshipSelect").value;
+    const intent = document.getElementById("intentSelect").value;
+
+    // Save to localStorage
+    localStorage.setItem("aura_user_mood", mood);
+    localStorage.setItem("aura_user_stress", stress);
+    localStorage.setItem("aura_user_relationship", relationship);
+    localStorage.setItem("aura_user_intent", intent);
+
+    // Save to Supabase
+    try {
+        const { error } = await db
+            .from("users")
+            .update({
+                mood: mood || null,
+                stress_level: stress ? parseInt(stress) : null,
+                relationship_status: relationship || null,
+                daily_intent: intent || null,
+                updated_at: new Date().toISOString()
+            })
+            .eq("id", userData.id);
+
+        if (error) {
+            console.error("Update error:", error);
+        } else {
+            track("personalization_saved", { mood, stress, relationship, intent });
+        }
+    } catch (error) {
+        console.error("Error:", error);
+    }
+}
+
 async function handleFormSubmit() {
     const name = document.getElementById("nameInput").value.trim();
     const phone = document.getElementById("phoneInput").value.trim();
 
-    // Validate input
     if (!name) {
         alert("Please enter your name.");
         return;
@@ -257,12 +454,13 @@ async function handleFormSubmit() {
             .from("users")
             .insert([
                 {
+                    anon_id: anon_id,
                     name: name,
                     phone: phone || null,
-                    anon_id: anon_id,
                     created_at: new Date().toISOString()
                 }
-            ]);
+            ])
+            .select();
 
         if (error) {
             console.error("Supabase error:", error);
@@ -271,9 +469,11 @@ async function handleFormSubmit() {
             return;
         }
 
-        // Mark as signed up
-        localStorage.setItem("aura_user_signed_up", "true");
+        // Save to localStorage
+        const userId = data[0].id;
+        localStorage.setItem("aura_user_id", userId);
         localStorage.setItem("aura_user_name", name);
+        localStorage.setItem("aura_user_phone", phone);
 
         alert("Welcome to The Aura! 🌟");
         track("user_signup_success", { 
@@ -282,10 +482,8 @@ async function handleFormSubmit() {
             engagement_count: localStorage.getItem("aura_engagement_count") || "0"
         });
 
-        // Hide form and show confirmation
-        document.getElementById("signupSection").classList.add("hidden");
-        document.getElementById("ctaSection").classList.add("hidden");
-        
+        // Reload to show profile view
+        window.location.reload();
     } catch (error) {
         console.error("Error:", error);
         alert("An unexpected error occurred.");
@@ -293,16 +491,117 @@ async function handleFormSubmit() {
 }
 
 // ============================================
-// SIGNUP TRIGGER LOGIC
+// SAVE DAILY ANALYSIS TO SUPABASE
 // ============================================
+async function saveDailyAnalysis() {
+    const userData = getUserData();
+    const insight = getDailyInsight();
+    const auraScore = parseInt(document.getElementById("auraScore").textContent);
+    
+    // Check if already saved today
+    const today = new Date().toDateString();
+    const lastSaveDate = localStorage.getItem("aura_last_save_date");
+    
+    if (lastSaveDate === today) {
+        // Already saved today, don't save again
+        return;
+    }
+
+    try {
+        const { error } = await db
+            .from("daily_analyses")
+            .insert([
+                {
+                    user_id: userData.id,
+                    aura_score: auraScore,
+                    insight_title: insight.title,
+                    insight_description: insight.description,
+                    mood: localStorage.getItem("aura_user_mood") || null,
+                    stress_level: localStorage.getItem("aura_user_stress") ? parseInt(localStorage.getItem("aura_user_stress")) : null,
+                    relationship_status: localStorage.getItem("aura_user_relationship") || null,
+                    created_at: new Date().toISOString()
+                }
+            ]);
+
+        if (error) {
+            console.error("Error saving daily analysis:", error);
+        } else {
+            localStorage.setItem("aura_last_save_date", today);
+            track("daily_analysis_saved", { aura_score, insight_title: insight.title });
+        }
+    } catch (error) {
+        console.error("Error:", error);
+    }
+}
 function checkSignupTrigger() {
     const alreadySignedUp = isUserSignedUp();
     const engagement = parseInt(localStorage.getItem("aura_engagement_count") || "0");
     const ctaSection = document.getElementById("ctaSection");
 
-    // Show signup CTA after 2 engagements (save or refresh)
     if (!alreadySignedUp && engagement >= 2) {
         ctaSection.classList.remove("hidden");
         track("signup_prompt_shown", { engagement_count: engagement });
+    }
+}
+
+// ============================================
+// UTILITY: Track engagement for signup trigger
+// ============================================
+function incrementEngagement() {
+    let engagement = localStorage.getItem("aura_engagement_count");
+    engagement = engagement ? parseInt(engagement) + 1 : 1;
+    localStorage.setItem("aura_engagement_count", engagement);
+    return engagement;
+}
+
+// ============================================
+// LOAD PAST ANALYSES
+// ============================================
+async function loadPastAnalyses() {
+    const userData = getUserData();
+    const pastAnalysesSection = document.getElementById("pastAnalysesSection");
+    const pastAnalysesList = document.getElementById("pastAnalysesList");
+
+    try {
+        const { data, error } = await db
+            .from("daily_analyses")
+            .select("*")
+            .eq("user_id", userData.id)
+            .order("created_at", { ascending: false })
+            .limit(7);
+
+        if (error) {
+            console.error("Error loading past analyses:", error);
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            // Show empty state
+            pastAnalysesSection.classList.remove("hidden");
+            pastAnalysesList.innerHTML = `
+                <div class="text-center py-6 text-gray-500">
+                    <p class="text-sm">No analyses yet. Save your first reading to start building your aura history.</p>
+                </div>
+            `;
+            return;
+        }
+
+        pastAnalysesSection.classList.remove("hidden");
+        pastAnalysesList.innerHTML = data.map(analysis => `
+            <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-100">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex-1">
+                        <p class="font-semibold text-sm text-gray-800">${analysis.insight_title}</p>
+                        <p class="text-xs text-gray-600 mt-1">${new Date(analysis.created_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-2xl font-bold text-transparent bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text">${analysis.aura_score}</span>
+                    </div>
+                </div>
+                ${analysis.mood ? `<p class="text-xs text-purple-600 mt-2">Mood: <span class="capitalize">${analysis.mood}</span></p>` : ''}
+            </div>
+        `).join("");
+    } catch (error) {
+        console.error("Error loading past analyses:", error);
     }
 }
