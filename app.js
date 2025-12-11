@@ -26,3 +26,26 @@ track("decode_analysis", { verdict: "low_effort" });
 
 track("app_loaded");
 track("daily_active");
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  const startBtn = document.getElementById("startBtn")
+  const formSection = document.getElementById("formSection")
+  const submitBtn = document.getElementById("submitBtn")
+
+  startBtn.addEventListener("click", () => {
+    formSection.classList.remove("hidden")
+    startBtn.parentElement.classList.add("hidden")
+  })
+
+  submitBtn.addEventListener("click", async () => {
+    const name = document.getElementById("nameInput").value.trim()
+    const phone = document.getElementById("phoneInput").value.trim()
+
+    // For now, we just log — later we connect Supabase
+    console.log("Saving user:", { name, phone })
+
+    alert("Profile created. More screens coming soon.")
+  })
+})
+
