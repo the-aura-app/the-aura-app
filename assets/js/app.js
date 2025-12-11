@@ -39,36 +39,26 @@ document.addEventListener("DOMContentLoaded", () => {
   })
 
   submitBtn.addEventListener("click", async () => {
-    const name = document.getElementById("nameInput").value.trim()
-    const phone = document.getElementById("phoneInput").value.trim()
+    const name = document.getElementById("nameInput").value.trim();
+    const phone = document.getElementById("phoneInput").value.trim();
 
-    // For now, we just log — later we connect Supabase
-    console.log("Saving user:", { name, phone })
+    // Insert into Supabase
+    const { data, error } = await supabase
+        .from("users")
+        .insert([
+        {
+            name: name || null,
+            phone: phone || null,
+            created_at: new Date().toISOString()
+        }
+        ]);
 
-    alert("Profile created. More screens coming soon.")
-  })
+    if (error) {
+        console.error("Supabase error:", error);
+        alert("Something went wrong.");
+        return;
+    }
+
+    alert("Profile saved successfully.");
+    });
 })
-
-submitBtn.addEventListener("click", async () => {
-  const name = document.getElementById("nameInput").value.trim();
-  const phone = document.getElementById("phoneInput").value.trim();
-
-  // Insert into Supabase
-  const { data, error } = await supabase
-    .from("users")
-    .insert([
-      {
-        name: name || null,
-        phone: phone || null,
-        created_at: new Date().toISOString()
-      }
-    ]);
-
-  if (error) {
-    console.error("Supabase error:", error);
-    alert("Something went wrong.");
-    return;
-  }
-
-  alert("Profile saved successfully.");
-});
