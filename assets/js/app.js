@@ -171,6 +171,9 @@ async function updateStreak() {
         localStorage.setItem("aura_streak", streak);
         localStorage.setItem("aura_last_visit", today);
 
+        // Reset personalization filled flag for new day
+        localStorage.removeItem("aura_personalization_filled_today");
+
         // Save streak to Supabase for signed-up users
         if (isUserSignedUp()) {
             const userData = getUserData();
@@ -296,16 +299,34 @@ async function showProfileView() {
     const userData = getUserData();
     const streakSection = document.getElementById("streakSection");
     const personalizationSection = document.getElementById("personalizationSection");
+    const notificationSection = document.getElementById("notificationSection");
+    const waitlistSection = document.getElementById("waitlistSection");
 
     // Show streak counter (and update it)
     const streak = await updateStreak();
     streakSection.classList.remove("hidden");
     document.getElementById("streakCount").textContent = `${streak} day streak`;
 
-    // Show personalization form
+    // Show personalization section
     personalizationSection.classList.remove("hidden");
 
-    // Pre-fill values if available
+    // Pre-fill values and show appropriate view
+    populatePersonalizationForm(userData);
+    showPersonalizationView(userData);
+
+    // Show notification section
+    notificationSection.classList.remove("hidden");
+    initializeNotificationToggle();
+
+    // Show waitlist section
+    waitlistSection.classList.remove("hidden");
+    initializeWaitlist();
+}
+
+// ============================================
+// POPULATE PERSONALIZATION FORM
+// ============================================
+function populatePersonalizationForm(userData) {
     if (userData.mood) document.getElementById("moodSelect").value = userData.mood;
     if (userData.stress_level) {
         document.getElementById("stressLevel").value = userData.stress_level;
@@ -313,6 +334,58 @@ async function showProfileView() {
     }
     if (userData.relationship_status) document.getElementById("relationshipSelect").value = userData.relationship_status;
     if (userData.daily_intent) document.getElementById("intentSelect").value = userData.daily_intent;
+}
+
+// ============================================
+// SHOW PERSONALIZATION VIEW (Summary or Form)
+// ============================================
+function showPersonalizationView(userData) {
+    const personalizationForm = document.getElementById("personalizationForm");
+    const personalizationSummary = document.getElementById("personalizationSummary");
+
+    const hasFilledToday = localStorage.getItem("aura_personalization_filled_today") === "true";
+
+    if (hasFilledToday && userData.mood) {
+        // Show summary
+        personalizationForm.classList.add("hidden");
+        personalizationSummary.classList.remove("hidden");
+        updatePersonalizationSummary(userData);
+    } else {
+        // Show form
+        personalizationForm.classList.remove("hidden");
+        personalizationSummary.classList.add("hidden");
+    }
+}
+
+// ============================================
+// UPDATE PERSONALIZATION SUMMARY DISPLAY
+// ============================================
+function updatePersonalizationSummary(userData) {
+    const moodSummary = document.getElementById("moodSummary");
+    const stressSummary = document.getElementById("stressSummary");
+    const relationshipSummary = document.getElementById("relationshipSummary");
+    const intentSummary = document.getElementById("intentSummary");
+
+    if (userData.mood) {
+        moodSummary.classList.remove("hidden");
+        document.getElementById("moodSummaryText").textContent = userData.mood.replace(/_/g, " ");
+    }
+
+    if (userData.stress_level) {
+        stressSummary.classList.remove("hidden");
+        const labels = ["Low", "Low", "Low", "Medium", "Medium", "Medium", "High", "High", "High", "Very High"];
+        document.getElementById("stressSummaryText").textContent = labels[parseInt(userData.stress_level) - 1];
+    }
+
+    if (userData.relationship_status) {
+        relationshipSummary.classList.remove("hidden");
+        document.getElementById("relationshipSummaryText").textContent = userData.relationship_status.replace(/_/g, " ");
+    }
+
+    if (userData.daily_intent) {
+        intentSummary.classList.remove("hidden");
+        document.getElementById("intentSummaryText").textContent = userData.daily_intent.replace(/_/g, " ");
+    }
 }
 
 // ============================================
@@ -349,6 +422,7 @@ function initializeEventListeners() {
     const signupCtaBtn = document.getElementById("signupCtaBtn");
     const submitBtn = document.getElementById("submitBtn");
     const savePersonalizationBtn = document.getElementById("savePersonalizationBtn");
+    const editProfileBtn = document.getElementById("editProfileBtn");
     const stressLevel = document.getElementById("stressLevel");
 
     refreshBtn.addEventListener("click", handleRefreshInsight);
@@ -356,6 +430,7 @@ function initializeEventListeners() {
     signupCtaBtn?.addEventListener("click", handleSignupCta);
     submitBtn.addEventListener("click", handleFormSubmit);
     savePersonalizationBtn?.addEventListener("click", handleSavePersonalization);
+    editProfileBtn?.addEventListener("click", handleEditProfile);
     stressLevel?.addEventListener("input", (e) => updateStressLabel(e.target.value));
 }
 
@@ -415,6 +490,7 @@ async function handleSavePersonalization() {
     localStorage.setItem("aura_user_stress", stress);
     localStorage.setItem("aura_user_relationship", relationship);
     localStorage.setItem("aura_user_intent", intent);
+    localStorage.setItem("aura_personalization_filled_today", "true");
 
     // Save to Supabase
     try {
@@ -433,10 +509,24 @@ async function handleSavePersonalization() {
             console.error("Update error:", error);
         } else {
             track("personalization_saved", { mood, stress, relationship, intent });
+            
+            // Switch to summary view
+            const personalizationForm = document.getElementById("personalizationForm");
+            const personalizationSummary = document.getElementById("personalizationSummary");
+            personalizationForm.classList.add("hidden");
+            personalizationSummary.classList.remove("hidden");
+            updatePersonalizationSummary(userData);
         }
     } catch (error) {
         console.error("Error:", error);
     }
+}
+
+function handleEditProfile() {
+    const personalizationForm = document.getElementById("personalizationForm");
+    const personalizationSummary = document.getElementById("personalizationSummary");
+    personalizationForm.classList.remove("hidden");
+    personalizationSummary.classList.add("hidden");
 }
 
 async function handleFormSubmit() {
@@ -604,4 +694,82 @@ async function loadPastAnalyses() {
     } catch (error) {
         console.error("Error loading past analyses:", error);
     }
+}
+
+// ============================================
+// NOTIFICATION TOGGLE
+// ============================================
+function initializeNotificationToggle() {
+    const notificationToggle = document.getElementById("notificationToggle");
+    const notificationsEnabled = localStorage.getItem("aura_notifications_enabled") === "true";
+
+    if (notificationsEnabled) {
+        notificationToggle.classList.add("bg-purple-500");
+        notificationToggle.querySelector("span").classList.add("translate-x-5");
+        notificationToggle.querySelector("span").classList.remove("translate-x-1");
+    }
+
+    notificationToggle.addEventListener("click", () => {
+        const isCurrentlyEnabled = localStorage.getItem("aura_notifications_enabled") === "true";
+        const newState = !isCurrentlyEnabled;
+
+        localStorage.setItem("aura_notifications_enabled", newState);
+
+        if (newState) {
+            notificationToggle.classList.add("bg-purple-500");
+            notificationToggle.classList.remove("bg-gray-300");
+            notificationToggle.querySelector("span").classList.add("translate-x-5");
+            notificationToggle.querySelector("span").classList.remove("translate-x-1");
+            track("notifications_enabled");
+        } else {
+            notificationToggle.classList.remove("bg-purple-500");
+            notificationToggle.classList.add("bg-gray-300");
+            notificationToggle.querySelector("span").classList.remove("translate-x-5");
+            notificationToggle.querySelector("span").classList.add("translate-x-1");
+            track("notifications_disabled");
+        }
+    });
+}
+
+// ============================================
+// WAITLIST
+// ============================================
+function initializeWaitlist() {
+    const joinWaitlistBtn = document.getElementById("joinWaitlistBtn");
+    const isOnWaitlist = localStorage.getItem("aura_waitlist_joined") === "true";
+
+    if (isOnWaitlist) {
+        joinWaitlistBtn.textContent = "✓ You're on the Waitlist";
+        joinWaitlistBtn.disabled = true;
+        joinWaitlistBtn.classList.add("opacity-70");
+    }
+
+    joinWaitlistBtn.addEventListener("click", async () => {
+        const userData = getUserData();
+
+        try {
+            // Save to waitlist in Supabase (we'll extend the users table later)
+            const { error } = await db
+                .from("users")
+                .update({
+                    waitlist_joined: true,
+                    updated_at: new Date().toISOString()
+                })
+                .eq("id", userData.id);
+
+            if (error) {
+                console.error("Error joining waitlist:", error);
+                return;
+            }
+
+            localStorage.setItem("aura_waitlist_joined", "true");
+            joinWaitlistBtn.textContent = "✓ You're on the Waitlist";
+            joinWaitlistBtn.disabled = true;
+            joinWaitlistBtn.classList.add("opacity-70");
+
+            track("waitlist_joined");
+        } catch (error) {
+            console.error("Error:", error);
+        }
+    });
 }
