@@ -156,14 +156,44 @@ async function updateStreak() {
     const today = new Date().toDateString();
     let streak = parseInt(localStorage.getItem("aura_streak") || "0");
 
+    // If there's no last visit recorded, this is the first visit — start streak at 1
+    if (!lastVisit) {
+        streak = 1;
+        localStorage.setItem("aura_streak", streak);
+        localStorage.setItem("aura_last_visit", today);
+
+        // Reset personalization filled flag for new day
+        localStorage.removeItem("aura_personalization_filled_today");
+
+        // Persist to Supabase if user exists
+        if (isUserSignedUp()) {
+            const userData = getUserData();
+            try {
+                await db
+                    .from("users")
+                    .update({
+                        streak_count: streak,
+                        last_visit_date: today,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq("id", userData.id);
+            } catch (error) {
+                console.error("Error updating streak:", error);
+            }
+        }
+
+        return streak;
+    }
+
+    // If user has visited before but not today, calculate diff
     if (lastVisit !== today) {
-        const lastVisitDate = lastVisit ? new Date(lastVisit) : new Date();
+        const lastVisitDate = new Date(lastVisit);
         const todayDate = new Date();
         const diffTime = todayDate - lastVisitDate;
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays === 1) {
-            streak += 1;
+            streak = streak + 1;
         } else if (diffDays > 1) {
             streak = 1;
         }
@@ -299,8 +329,6 @@ async function showProfileView() {
     const userData = getUserData();
     const streakSection = document.getElementById("streakSection");
     const personalizationSection = document.getElementById("personalizationSection");
-    const notificationSection = document.getElementById("notificationSection");
-    const waitlistSection = document.getElementById("waitlistSection");
 
     // Show streak counter (and update it)
     const streak = await updateStreak();
@@ -314,13 +342,8 @@ async function showProfileView() {
     populatePersonalizationForm(userData);
     showPersonalizationView(userData);
 
-    // Show notification section
-    notificationSection.classList.remove("hidden");
-    initializeNotificationToggle();
-
-    // Show waitlist section
-    waitlistSection.classList.remove("hidden");
-    initializeWaitlist();
+    // Load and show past analyses (but collapsed)
+    loadPastAnalyses();
 }
 
 // ============================================
@@ -424,6 +447,7 @@ function initializeEventListeners() {
     const savePersonalizationBtn = document.getElementById("savePersonalizationBtn");
     const editProfileBtn = document.getElementById("editProfileBtn");
     const stressLevel = document.getElementById("stressLevel");
+    const toggleHistoryBtn = document.getElementById("toggleHistoryBtn");
 
     refreshBtn.addEventListener("click", handleRefreshInsight);
     saveBtn.addEventListener("click", handleSaveInsight);
@@ -432,6 +456,13 @@ function initializeEventListeners() {
     savePersonalizationBtn?.addEventListener("click", handleSavePersonalization);
     editProfileBtn?.addEventListener("click", handleEditProfile);
     stressLevel?.addEventListener("input", (e) => updateStressLabel(e.target.value));
+    toggleHistoryBtn?.addEventListener("click", toggleHistory);
+
+    // Initialize waitlist handler if the button exists anywhere in the DOM
+    const joinWaitlistBtn = document.getElementById("joinWaitlistBtn");
+    if (joinWaitlistBtn) {
+        initializeWaitlist();
+    }
 }
 
 // ============================================
@@ -515,7 +546,8 @@ async function handleSavePersonalization() {
             const personalizationSummary = document.getElementById("personalizationSummary");
             personalizationForm.classList.add("hidden");
             personalizationSummary.classList.remove("hidden");
-            updatePersonalizationSummary(userData);
+            // Update summary using the newest values saved to localStorage
+            updatePersonalizationSummary(getUserData());
         }
     } catch (error) {
         console.error("Error:", error);
@@ -642,6 +674,17 @@ function incrementEngagement() {
     engagement = engagement ? parseInt(engagement) + 1 : 1;
     localStorage.setItem("aura_engagement_count", engagement);
     return engagement;
+}
+
+// ============================================
+// HISTORY TOGGLE
+// ============================================
+function toggleHistory() {
+    const pastAnalysesList = document.getElementById("pastAnalysesList");
+    const historyToggleIcon = document.getElementById("historyToggleIcon");
+    
+    pastAnalysesList.classList.toggle("hidden");
+    historyToggleIcon.textContent = pastAnalysesList.classList.contains("hidden") ? "▼" : "▲";
 }
 
 // ============================================

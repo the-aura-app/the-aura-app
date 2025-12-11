@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS users (
     -- Engagement metrics
     streak_count INT DEFAULT 0,
     last_visit_date DATE,
+    -- Waitlist flag
+    waitlist_joined BOOLEAN DEFAULT FALSE,
     
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
