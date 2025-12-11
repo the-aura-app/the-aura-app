@@ -6,10 +6,15 @@
     <title>The Aura</title>
     <link rel="stylesheet" href="styles.css" />
 
+    <!-- ============================================
+         EXTERNAL LIBRARIES AND FRAMEWORKS
+         ============================================ -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script defer src="assets/js/app.js"></script>
 
+    <!-- ============================================
+         POSTHOG ANALYTICS
+         ============================================ -->
     <script>
   !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){
     function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),
@@ -22,9 +27,12 @@
     api_host:"https://app.posthog.com",
     autocapture:false
   });
-</script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
+    </script>
+
+    <!-- ============================================
+         APPLICATION SCRIPTS
+         ============================================ -->
+    <script defer src="assets/js/app.js"></script>
 </head>
 
 <body class="bg-gray-50 text-gray-900">
