@@ -300,26 +300,56 @@ document.addEventListener("DOMContentLoaded", () => {
 // ============================================
 function initializeApp() {
     const isSignedUp = isUserSignedUp();
+    // Ensure the waitlist section is visible (we show it by default in the UI)
+    const waitlistSection = document.getElementById("waitlistSection");
+    if (waitlistSection) waitlistSection.classList.remove("hidden");
 
-    // Load greeting
-    loadGreeting();
+    // Allow session-scoped tracking (persists across refresh) so the user sees joined state after refresh
+    const isOnWaitlistSession = sessionStorage.getItem("aura_waitlist_joined") === "true";
+    const isOnWaitlistLocal = localStorage.getItem("aura_waitlist_joined") === "true";
 
-    // Load daily insight with variable reward
-    loadInsight();
-
-    // Setup event listeners
-    initializeEventListeners();
-
-    if (isSignedUp) {
-        // Signed-up flow: show profile view
-        showProfileView();
-        loadPastAnalyses();
-    } else {
-        // New user flow: show signup prompt
-        checkSignupTrigger();
+    if (isOnWaitlistSession || isOnWaitlistLocal) {
+        joinWaitlistBtn.textContent = "✓ You're on the Waitlist";
+        joinWaitlistBtn.disabled = true;
+        joinWaitlistBtn.classList.add("opacity-70");
     }
 
-    track("session_start", { is_signed_up: isSignedUp });
+    joinWaitlistBtn.addEventListener("click", async () => {
+        const userData = getUserData();
+
+        try {
+            // Update UI immediately and set session flag for persistence across refresh
+            sessionStorage.setItem("aura_waitlist_joined", "true");
+            localStorage.setItem("aura_waitlist_joined", "true");
+            joinWaitlistBtn.textContent = "✓ You're on the Waitlist";
+            joinWaitlistBtn.disabled = true;
+            joinWaitlistBtn.classList.add("opacity-70");
+
+            // Save to waitlist in Supabase (if user is signed up)
+            if (isUserSignedUp()) {
+                const { error } = await db
+                    .from("users")
+                    .update({
+                        waitlist_joined: true,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq("id", userData.id);
+
+                if (error) {
+                    console.error("Error joining waitlist:", error);
+                }
+            }
+
+            track("waitlist_joined");
+        } catch (error) {
+            console.error("Error:", error);
+            // Ensure UI still reflects session state even if DB call fails
+            sessionStorage.setItem("aura_waitlist_joined", "true");
+            localStorage.setItem("aura_waitlist_joined", "true");
+            joinWaitlistBtn.textContent = "✓ You're on the Waitlist";
+            joinWaitlistBtn.disabled = true;
+            joinWaitlistBtn.classList.add("opacity-70");
+        }
 }
 
 // ============================================
