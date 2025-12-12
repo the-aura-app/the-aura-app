@@ -293,6 +293,9 @@ function getUserData() {
 // ============================================
 document.addEventListener("DOMContentLoaded", () => {
     initializeApp();
+    initializeEventListeners();
+    loadGreeting();
+    loadInsight();
 });
 
 // ============================================
@@ -300,58 +303,24 @@ document.addEventListener("DOMContentLoaded", () => {
 // ============================================
 function initializeApp() {
     const isSignedUp = isUserSignedUp();
-    // Ensure the waitlist section is visible (we show it by default in the UI)
-    const waitlistSection = document.getElementById("waitlistSection");
-    if (waitlistSection) waitlistSection.classList.remove("hidden");
-
-    // Allow session-scoped tracking (persists across refresh) so the user sees joined state after refresh
-    const isOnWaitlistSession = sessionStorage.getItem("aura_waitlist_joined") === "true";
-    const isOnWaitlistLocal = localStorage.getItem("aura_waitlist_joined") === "true";
-    const joinWaitlistBtn = document.getElementById("joinWaitlistBtn");
     
-    if (isOnWaitlistSession || isOnWaitlistLocal) {
+    // Show appropriate sections based on signup status
+    if (isSignedUp) {
+        showProfileView();
+        document.getElementById("ctaSection")?.classList.add("hidden");
+    } else {
+        document.getElementById("ctaSection")?.classList.add("hidden");
+        document.getElementById("signupSection")?.classList.add("hidden");
+    }
+
+    // Initialize waitlist UI
+    const isOnWaitlist = localStorage.getItem("aura_waitlist_joined") === "true";
+    const joinWaitlistBtn = document.getElementById("joinWaitlistBtn");
+    if (isOnWaitlist && joinWaitlistBtn) {
         joinWaitlistBtn.textContent = "✓ You're on the Waitlist";
         joinWaitlistBtn.disabled = true;
         joinWaitlistBtn.classList.add("opacity-70");
     }
-
-    joinWaitlistBtn.addEventListener("click", async () => {
-        const userData = getUserData();
-
-        try {
-            // Update UI immediately and set session flag for persistence across refresh
-            sessionStorage.setItem("aura_waitlist_joined", "true");
-            localStorage.setItem("aura_waitlist_joined", "true");
-            joinWaitlistBtn.textContent = "✓ You're on the Waitlist";
-            joinWaitlistBtn.disabled = true;
-            joinWaitlistBtn.classList.add("opacity-70");
-
-            // Save to waitlist in Supabase (if user is signed up)
-            if (isUserSignedUp()) {
-                const { error } = await db
-                    .from("users")
-                    .update({
-                        waitlist_joined: true,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq("id", userData.id);
-
-                if (error) {
-                    console.error("Error joining waitlist:", error);
-                }
-            }
-
-            track("waitlist_joined");
-        } catch (error) {
-            console.error("Error:", error);
-            // Ensure UI still reflects session state even if DB call fails
-            sessionStorage.setItem("aura_waitlist_joined", "true");
-            localStorage.setItem("aura_waitlist_joined", "true");
-            joinWaitlistBtn.textContent = "✓ You're on the Waitlist";
-            joinWaitlistBtn.disabled = true;
-            joinWaitlistBtn.classList.add("opacity-70");
-        }
-    });
 }
 
 // ============================================
@@ -520,26 +489,50 @@ function initializeEventListeners() {
     const editProfileBtn = document.getElementById("editProfileBtn");
     const stressLevel = document.getElementById("stressLevel");
     const toggleHistoryBtn = document.getElementById("toggleHistoryBtn");
+    const joinWaitlistBtn = document.getElementById("joinWaitlistBtn");
 
-    refreshBtn.addEventListener("click", handleRefreshInsight);
-    saveBtn.addEventListener("click", handleSaveInsight);
+    refreshBtn?.addEventListener("click", handleRefreshInsight);
+    saveBtn?.addEventListener("click", handleSaveInsight);
     signupCtaBtn?.addEventListener("click", handleSignupCta);
-    submitBtn.addEventListener("click", handleFormSubmit);
+    submitBtn?.addEventListener("click", handleFormSubmit);
     savePersonalizationBtn?.addEventListener("click", handleSavePersonalization);
     editProfileBtn?.addEventListener("click", handleEditProfile);
     stressLevel?.addEventListener("input", (e) => updateStressLabel(e.target.value));
     toggleHistoryBtn?.addEventListener("click", toggleHistory);
-
-    // Initialize waitlist handler if the button exists anywhere in the DOM
-    const joinWaitlistBtn = document.getElementById("joinWaitlistBtn");
-    if (joinWaitlistBtn) {
-        initializeWaitlist();
-    }
+    joinWaitlistBtn?.addEventListener("click", handleWaitlistJoin);
 }
 
 // ============================================
 // EVENT HANDLERS
 // ============================================
+async function handleWaitlistJoin() {
+    const joinWaitlistBtn = document.getElementById("joinWaitlistBtn");
+    const userData = getUserData();
+
+    try {
+        // Update UI immediately
+        localStorage.setItem("aura_waitlist_joined", "true");
+        joinWaitlistBtn.textContent = "✓ You're on the Waitlist";
+        joinWaitlistBtn.disabled = true;
+        joinWaitlistBtn.classList.add("opacity-70");
+
+        // Save to Supabase if user is signed up
+        if (isUserSignedUp() && userData.id) {
+            await db
+                .from("users")
+                .update({
+                    waitlist_joined: true,
+                    updated_at: new Date().toISOString()
+                })
+                .eq("id", userData.id);
+        }
+
+        track("waitlist_joined");
+    } catch (error) {
+        console.error("Waitlist join error:", error);
+    }
+}
+
 async function handleRefreshInsight() {
     localStorage.removeItem("aura_insight_date");
     localStorage.removeItem("aura_insight_index");
@@ -840,49 +833,6 @@ function initializeNotificationToggle() {
             notificationToggle.querySelector("span").classList.remove("translate-x-5");
             notificationToggle.querySelector("span").classList.add("translate-x-1");
             track("notifications_disabled");
-        }
-    });
-}
-
-// ============================================
-// WAITLIST
-// ============================================
-function initializeWaitlist() {
-    const joinWaitlistBtn = document.getElementById("joinWaitlistBtn");
-    const isOnWaitlist = localStorage.getItem("aura_waitlist_joined") === "true";
-
-    if (isOnWaitlist) {
-        joinWaitlistBtn.textContent = "✓ You're on the Waitlist";
-        joinWaitlistBtn.disabled = true;
-        joinWaitlistBtn.classList.add("opacity-70");
-    }
-
-    joinWaitlistBtn.addEventListener("click", async () => {
-        const userData = getUserData();
-
-        try {
-            // Save to waitlist in Supabase (we'll extend the users table later)
-            const { error } = await db
-                .from("users")
-                .update({
-                    waitlist_joined: true,
-                    updated_at: new Date().toISOString()
-                })
-                .eq("id", userData.id);
-
-            if (error) {
-                console.error("Error joining waitlist:", error);
-                return;
-            }
-
-            localStorage.setItem("aura_waitlist_joined", "true");
-            joinWaitlistBtn.textContent = "✓ You're on the Waitlist";
-            joinWaitlistBtn.disabled = true;
-            joinWaitlistBtn.classList.add("opacity-70");
-
-            track("waitlist_joined");
-        } catch (error) {
-            console.error("Error:", error);
         }
     });
 }
