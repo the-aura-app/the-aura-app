@@ -1,81 +1,28 @@
--- ============================================
--- The Aura App - Supabase Database Schema
--- ============================================
-
--- Users Table
--- Stores user profile information
+-- Simplified users table
 CREATE TABLE IF NOT EXISTS users (
-    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    anon_id UUID,
-    name VARCHAR(255),
-    phone VARCHAR(20),
-    
-    -- Personalization fields
-    mood VARCHAR(50),
-    relationship_status VARCHAR(50),
-    stress_level INT CHECK (stress_level >= 0 AND stress_level <= 10),
-    daily_intent TEXT,
-    
-    -- Engagement metrics
-    streak_count INT DEFAULT 0,
-    last_visit_date DATE,
-    -- Waitlist flag
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    anon_id TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    phone TEXT,
+    current_mood TEXT,
+    streak_count INTEGER DEFAULT 1,
+    last_visit_date TEXT,
     waitlist_joined BOOLEAN DEFAULT FALSE,
-    
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Daily Analyses Table
--- Stores each day's aura reading and user input
-CREATE TABLE IF NOT EXISTS daily_analyses (
-    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
-    
-    -- Aura score (randomized 1-100)
-    aura_score INT CHECK (aura_score >= 1 AND aura_score <= 100),
-    insight_title VARCHAR(255),
-    insight_description TEXT,
-    
-    -- User mood snapshot for this day
-    mood VARCHAR(50),
-    stress_level INT,
-    relationship_status VARCHAR(50),
-    
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- New conversations table (replaces daily_analyses and expressions)
+CREATE TABLE conversations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_message TEXT NOT NULL,
+    aura_response TEXT NOT NULL,
+    mood TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_users_anon_id ON users(anon_id);
-CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_daily_analyses_user_id ON daily_analyses(user_id);
-CREATE INDEX IF NOT EXISTS idx_daily_analyses_created_at ON daily_analyses(created_at DESC);
-
--- Enable Row Level Security
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_analyses ENABLE ROW LEVEL SECURITY;
-
--- RLS Policy - Allow anonymous inserts (for signup)
-CREATE POLICY "Allow anonymous inserts" ON users
-    FOR INSERT
-    WITH CHECK (true);
-
--- RLS Policy - Allow select on own records
-CREATE POLICY "Allow users to view own records" ON users
-    FOR SELECT
-    USING (true);
-
--- RLS Policy - Allow updates to own records
-CREATE POLICY "Allow users to update own records" ON users
-    FOR UPDATE
-    USING (true);
-
--- RLS Policy - Allow inserts to daily_analyses
-CREATE POLICY "Allow daily analyses inserts" ON daily_analyses
-    FOR INSERT
-    WITH CHECK (true);
-
--- RLS Policy - Allow select on daily_analyses
-CREATE POLICY "Allow daily analyses select" ON daily_analyses
-    FOR SELECT
-    USING (true);
+-- Indexes for performance
+CREATE INDEX idx_users_anon_id ON users(anon_id);
+CREATE INDEX idx_conversations_user_id ON conversations(user_id);
+CREATE INDEX idx_conversations_created_at ON conversations(created_at DESC);
