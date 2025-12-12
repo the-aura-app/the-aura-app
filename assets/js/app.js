@@ -307,7 +307,8 @@ function initializeApp() {
     // Allow session-scoped tracking (persists across refresh) so the user sees joined state after refresh
     const isOnWaitlistSession = sessionStorage.getItem("aura_waitlist_joined") === "true";
     const isOnWaitlistLocal = localStorage.getItem("aura_waitlist_joined") === "true";
-
+    const joinWaitlistBtn = document.getElementById("joinWaitlistBtn");
+    
     if (isOnWaitlistSession || isOnWaitlistLocal) {
         joinWaitlistBtn.textContent = "✓ You're on the Waitlist";
         joinWaitlistBtn.disabled = true;
@@ -350,6 +351,7 @@ function initializeApp() {
             joinWaitlistBtn.disabled = true;
             joinWaitlistBtn.classList.add("opacity-70");
         }
+    });
 }
 
 // ============================================
