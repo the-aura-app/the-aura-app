@@ -409,6 +409,15 @@ function updatePersonalizationSummary(userData) {
         intentSummary.classList.remove("hidden");
         document.getElementById("intentSummaryText").textContent = userData.daily_intent.replace(/_/g, " ");
     }
+
+    // Show a short affirmation tuned to mood to increase emotional resonance
+    const affirmationEl = document.getElementById("personalAffirmation");
+    if (affirmationEl) {
+        const mood = userData.mood;
+        const text = getPersonalizedAffirmation(mood);
+        affirmationEl.textContent = text;
+        affirmationEl.classList.remove("hidden");
+    }
 }
 
 // ============================================
@@ -425,15 +434,46 @@ function loadGreeting() {
 function loadInsight() {
     const insight = getDailyInsight();
     const auraScore = generateAuraScore();
+    // If user has a mood today, prefer an insight that transforms negative moods to positive
+    const userMood = localStorage.getItem("aura_user_mood");
+    const moodBasedInsight = mapInsightForMood(userMood, insight);
 
-    document.getElementById("insightTitle").textContent = insight.title;
-    document.getElementById("insightDescription").textContent = insight.description;
+    document.getElementById("insightTitle").textContent = moodBasedInsight.title;
+    document.getElementById("insightDescription").textContent = moodBasedInsight.description;
     document.getElementById("auraScore").textContent = auraScore;
 
     track("insight_viewed", { 
-        insight_title: insight.title,
+        insight_title: moodBasedInsight.title,
         aura_score: auraScore
     });
+}
+
+// Map mood -> supportive insight (prefer transformation for negative moods)
+function mapInsightForMood(mood, defaultInsight) {
+    if (!mood) return defaultInsight;
+
+    const negativeMoods = ["stressed", "confused", "lonely", "overwhelmed"];
+    const positiveFallbacks = {
+        stressed: "The Recovery Card",
+        confused: "The Clarity Card",
+        lonely: "The Confidence Card",
+        overwhelmed: "The Recovery Card"
+    };
+
+    if (negativeMoods.includes(mood)) {
+        const targetTitle = positiveFallbacks[mood] || defaultInsight.title;
+        const found = insights.find(i => i.title === targetTitle);
+        return found || defaultInsight;
+    }
+
+    // For positive moods, nudge to more energy/ambition
+    const positiveMoods = ["energized", "confident", "calm"];
+    if (positiveMoods.includes(mood)) {
+        const found = insights.find(i => i.title === "The Ambition Card") || defaultInsight;
+        return found;
+    }
+
+    return defaultInsight;
 }
 
 // ============================================
@@ -565,10 +605,8 @@ async function handleFormSubmit() {
     const name = document.getElementById("nameInput").value.trim();
     const phone = document.getElementById("phoneInput").value.trim();
 
-    if (!name) {
-        alert("Please enter your name.");
-        return;
-    }
+    // Allow lightweight signup: if name is empty, use a friendly fallback to reduce friction
+    const finalName = name || "Friend";
 
     try {
         // Insert user data into Supabase
@@ -577,7 +615,7 @@ async function handleFormSubmit() {
             .insert([
                 {
                     anon_id: anon_id,
-                    name: name,
+                    name: finalName,
                     phone: phone || null,
                     created_at: new Date().toISOString()
                 }

@@ -7,7 +7,7 @@
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     anon_id UUID,
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255),
     phone VARCHAR(20),
     
     -- Personalization fields
