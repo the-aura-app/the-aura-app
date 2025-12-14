@@ -315,7 +315,7 @@ const handleUserResponse = async (text, isSystemEvent = false) => {
     if (state.interactionCount === 6 && !state.askedForPhone && !state.userPhone) {
         state.askedForPhone = true;
         setTimeout(() => {
-            addMessage("Can you share me phone no., I will notify you", false);
+            addMessage("You are doing great work, Can you share me phone no. ?", false);
             showDataInput('phone');
         }, 800);
         return;
