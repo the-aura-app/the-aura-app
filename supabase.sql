@@ -1,28 +1,24 @@
--- Simplified users table
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    anon_id TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
-    phone TEXT,
-    current_mood TEXT,
-    streak_count INTEGER DEFAULT 1,
-    last_visit_date TEXT,
-    waitlist_joined BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+-- Users Table
+CREATE TABLE users (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    anon_id text UNIQUE NOT NULL,
+    name text,
+    phone text,
+    created_at timestamp DEFAULT now(),
+    updated_at timestamp DEFAULT now()
 );
 
--- New conversations table (replaces daily_analyses and expressions)
+-- Conversations Table (includes everything - mood, name, phone, messages)
 CREATE TABLE conversations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    user_message TEXT NOT NULL,
-    aura_response TEXT NOT NULL,
-    mood TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+    user_message text,
+    aura_response text,
+    message_type text DEFAULT 'interaction',
+    mood text,
+    created_at timestamp DEFAULT now()
 );
 
 -- Indexes for performance
-CREATE INDEX idx_users_anon_id ON users(anon_id);
 CREATE INDEX idx_conversations_user_id ON conversations(user_id);
 CREATE INDEX idx_conversations_created_at ON conversations(created_at DESC);
