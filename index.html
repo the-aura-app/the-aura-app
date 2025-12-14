@@ -3,151 +3,79 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>The Aura - I'm here for you</title>
+    <title>The Aura</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'aura-purple': '#9d4edd',
-                        'aura-pink': '#e0aaff',
-                    }
-                }
-            }
+    <script src="https://unpkg.com/compromise@13.11.3/builds/compromise.min.js"></script>
+    <style>
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-    </script>
-    <script>
-        !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){
-            function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),
-            t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(o=t.createElement("script")).type="text/javascript",
-            o.async=!0,o.src=s.api_host+"/static/array.js",(n=t.getElementsByTagName("script")[0]).parentNode.insertBefore(o,n);
-            var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],p=["capture","identify","alias","people.set","people.set_once"],
-            r=0;r<p.length;r++)g(u,p[r]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-        posthog.init("phc_kI41CkPowj4ZK2ryanONa53I3QM4JsNi1meSTl11xR2",{
-            api_host:"https://app.posthog.com",
-            autocapture:false
-        });
-    </script>
+        @keyframes fadeInScale {
+            from { opacity: 0; scale: 0.95; }
+            to { opacity: 1; scale: 1; }
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.3); }
+            50% { box-shadow: 0 0 30px rgba(168, 85, 247, 0.5); }
+        }
+        .animate-slide-up { animation: slideUp 0.5s ease-out; }
+        .animate-fade-scale { animation: fadeInScale 0.4s ease-out; }
+        .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+        .glass-effect { backdrop-filter: blur(20px); background: rgba(255, 255, 255, 0.7); }
+        .gradient-border { position: relative; }
+        .gradient-border::before { 
+            content: ''; position: absolute; inset: 0; border-radius: 1rem; 
+            padding: 2px; background: linear-gradient(135deg, #a855f7, #ec4899); 
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); 
+            -webkit-mask-composite: xor; mask-composite: exclude;
+        }
+    </style>
 </head>
-
-<body class="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100">
-    <div class="min-h-screen flex flex-col bg-white max-w-md mx-auto">
+<body class="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100 flex items-center justify-center p-3">
+    <div class="w-full max-w-md h-screen max-h-screen flex flex-col bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-purple-100">
         
-        <div class="h-1 bg-gradient-to-r from-purple-400 via-pink-300 to-purple-400"></div>
-
-        <header class="px-4 pt-6 pb-4">
-            <h1 class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">The Aura</h1>
-            <p class="text-xs text-gray-500 mt-1">I'm here. Talk to me.</p>
-        </header>
-
-        <main class="flex-1 px-4 py-4 overflow-y-auto">
-
-            <!-- Greeting -->
-            <section class="mb-6 text-center">
-                <p id="greeting" class="text-2xl font-light text-gray-800 leading-tight mb-2"></p>
-            </section>
-
-            <!-- Quick Mood Check -->
-            <section class="mb-6">
-                <div class="bg-gradient-to-br from-white to-purple-50 rounded-2xl p-5 border border-purple-100">
-                    <p class="text-sm text-gray-700 mb-3">How are you feeling right now?</p>
-                    <div class="grid grid-cols-4 gap-2">
-                        <button class="mood-btn p-3 rounded-lg border-2 border-purple-100 hover:border-purple-400 hover:bg-purple-50 transition-all" data-mood="great">
-                            <div class="text-2xl mb-1">😊</div>
-                            <div class="text-xs text-gray-600">Great</div>
-                        </button>
-                        <button class="mood-btn p-3 rounded-lg border-2 border-purple-100 hover:border-purple-400 hover:bg-purple-50 transition-all" data-mood="okay">
-                            <div class="text-2xl mb-1">😌</div>
-                            <div class="text-xs text-gray-600">Okay</div>
-                        </button>
-                        <button class="mood-btn p-3 rounded-lg border-2 border-purple-100 hover:border-purple-400 hover:bg-purple-50 transition-all" data-mood="stressed">
-                            <div class="text-2xl mb-1">😰</div>
-                            <div class="text-xs text-gray-600">Stressed</div>
-                        </button>
-                        <button class="mood-btn p-3 rounded-lg border-2 border-purple-100 hover:border-purple-400 hover:bg-purple-50 transition-all" data-mood="overwhelmed">
-                            <div class="text-2xl mb-1">😓</div>
-                            <div class="text-xs text-gray-600">Exhausted</div>
-                        </button>
+        <!-- Premium Header -->
+        <div class="relative bg-gradient-to-br from-purple-600 via-purple-500 to-pink-500 px-6 py-5 text-white flex-shrink-0 overflow-hidden">
+            <div class="absolute inset-0 opacity-20">
+                <div class="absolute top-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl -mr-20 -mt-20"></div>
+            </div>
+            
+            <div class="relative z-10 flex justify-between items-center mb-4">
+                <div>
+                    <h1 class="text-3xl font-bold tracking-tight">The Aura</h1>
+                    <p class="text-xs opacity-90 font-light tracking-wide">Your safe sanctuary</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs opacity-90 font-light uppercase tracking-widest">Mood</p>
+                    <div class="relative">
+                        <p class="text-3xl font-bold" id="auraScore">--</p>
                     </div>
                 </div>
-            </section>
+            </div>
+            
+            <div class="relative h-2 bg-white/20 rounded-full overflow-hidden">
+                <div id="auraMeter" class="absolute h-full bg-gradient-to-r from-yellow-300 via-pink-300 to-purple-300 w-0 transition-all duration-1000 ease-out rounded-full shadow-lg" style="box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);"></div>
+            </div>
+        </div>
 
-            <!-- Conversational Aura Card (Combined) -->
-            <section class="mb-6">
-                <div class="bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl shadow-lg overflow-hidden">
-                    
-                    <!-- Chat Messages -->
-                    <div id="chatMessages" class="p-6 space-y-4 min-h-[400px] max-h-[500px] overflow-y-auto">
-                        <!-- Messages will appear here -->
-                        <div class="text-center text-sm text-gray-500 py-8">
-                            <p>Select how you're feeling above...</p>
-                            <p class="text-xs mt-2">I'm listening 💜</p>
-                        </div>
-                    </div>
+        <!-- Messages Area -->
+        <div id="chatMessages" class="flex-1 overflow-y-auto px-5 py-6 space-y-4 scroll-smooth bg-gradient-to-b from-purple-50/30 to-transparent">
+            <div class="text-center text-gray-600 py-8">
+                <p class="text-lg font-light leading-relaxed">How are you feeling today?</p>
+                <p class="text-xs text-gray-500 mt-3">Take a moment. I'm listening. 💜</p>
+            </div>
+        </div>
 
-                    <!-- Input Area -->
-                    <div class="border-t border-purple-200 bg-white/50 p-4">
-                        <div class="flex gap-2">
-                            <input 
-                                id="messageInput" 
-                                type="text" 
-                                placeholder="Type anything... I'm here"
-                                class="flex-1 px-4 py-3 border border-purple-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                                disabled
-                            />
-                            <button id="sendBtn" class="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50" disabled>
-                                Send
-                            </button>
-                        </div>
-                        <p class="text-xs text-gray-500 text-center mt-2">This is private & safe. Just between you and your aura.</p>
-                    </div>
-
-                </div>
-            </section>
-
-            <!-- Journey Stats (if signed up) -->
-            <section id="journeySection" class="hidden mb-6">
-                <div class="bg-gradient-to-br from-white to-purple-50 rounded-2xl p-4 border border-purple-100">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-semibold text-gray-800">Hey <span id="userName">there</span> 👋</p>
-                            <p class="text-xs text-gray-500">You've been here for <span id="streakDays">1</span> days</p>
-                        </div>
-                        <div class="text-3xl">🔥</div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Past Conversations -->
-            <section id="historySection" class="hidden mb-6">
-                <button id="toggleHistory" class="w-full flex items-center justify-between py-3 px-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg hover:from-purple-100 hover:to-pink-100 transition-all">
-                    <h3 class="text-sm font-semibold text-gray-700">Your Past Conversations</h3>
-                    <span id="historyIcon">▼</span>
-                </button>
-                <div id="historyList" class="mt-3 space-y-3 hidden"></div>
-            </section>
-
-            <!-- Premium Waitlist -->
-            <section class="mb-6">
-                <div class="bg-white rounded-2xl p-4 border border-purple-100 text-center">
-                    <p class="text-sm text-gray-700 mb-2">Want daily check-ins via text?</p>
-                    <p class="text-xs text-gray-500 mb-3">Join <strong>500+</strong> women on the waitlist</p>
-                    <button id="waitlistBtn" class="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-2 rounded-lg font-semibold hover:from-purple-700 hover:to-pink-600 transition-all text-sm">
-                        I'm Interested
-                    </button>
-                </div>
-            </section>
-
-        </main>
-
-        <footer class="px-4 py-3 text-center text-xs text-gray-400 border-t border-purple-100">
-            <p>Come back tomorrow 💜</p>
-        </footer>
-
+        <!-- Interaction Area -->
+        <div class="border-t border-purple-200/50 bg-gradient-to-t from-purple-50 via-white to-transparent px-5 py-4 flex-shrink-0 max-h-[45%] overflow-y-auto">
+            <div id="optionsContainer" class="space-y-2.5">
+                <!-- Dynamic content inserted here -->
+            </div>
+        </div>
     </div>
 
-    <script src="assets/js/app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
