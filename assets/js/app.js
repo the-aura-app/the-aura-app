@@ -10,7 +10,6 @@ const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/rapid-function`;
 // ============================================
 let state = {
     userId: null,
-    // Generate new ID if none exists
     anonId: localStorage.getItem('aura_anon_id') || crypto.randomUUID(),
     currentMood: null,
     auraScore: 50,
@@ -21,13 +20,11 @@ let state = {
     conversationHistory: [] 
 };
 
-// Persist ID immediately
 localStorage.setItem('aura_anon_id', state.anonId);
 
 let db = null;
 if (window.supabase) {
     try { 
-        // We pass the anon-id in headers so RLS policies work securely
         db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
             global: { headers: { 'x-anon-id': state.anonId } }
         }); 
@@ -39,7 +36,6 @@ if (window.supabase) {
 // 3. BACKEND CONNECTION
 // ============================================
 const callAuraBrain = async (prompt) => {
-    // Controller to prevent hanging requests
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
@@ -74,18 +70,18 @@ const callAuraBrain = async (prompt) => {
 // ============================================
 
 window.resetSession = async () => {
-    // 1. Generate NEW Identity for a fresh start
+    // 1. Generate NEW Identity
     state.anonId = crypto.randomUUID();
     localStorage.setItem('aura_anon_id', state.anonId);
     
-    // 2. Update DB Client with new header
+    // 2. Update DB Client
     if (window.supabase) {
         db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
             global: { headers: { 'x-anon-id': state.anonId } }
         });
     }
 
-    // 3. Reset RAM State
+    // 3. Reset State
     state.userId = null;
     state.userName = null;
     state.userPhone = null;
@@ -96,29 +92,32 @@ window.resetSession = async () => {
     state.askedForName = false;
     state.askedForPhone = false;
 
-    // 4. Clear UI
+    // 4. Reset UI
     document.getElementById('chatMessages').innerHTML = ''; 
     updateAuraUI(0);
-
-    // 5. Create new user entry in background
-    await initUser();
-
-    // 6. Show Welcome
+    
+    // 5. Restore Welcome Screen & Moods
     renderWelcomeScreen();
     renderMoodButtons();
+
+    // 6. Create new user entry in background
+    await initUser();
 };
 
 const renderWelcomeScreen = () => {
     const chat = document.getElementById('chatMessages');
-    chat.innerHTML = `
-        <div id="welcomeScreen" class="h-full flex flex-col justify-center items-center text-center p-6 animate-fade-in mt-10">
-            <div class="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                <span class="text-4xl">💜</span>
+    // We check if it's already there to avoid flickering
+    if (!document.getElementById('welcomeScreen')) {
+        chat.innerHTML = `
+            <div id="welcomeScreen" class="h-full flex flex-col justify-center items-center text-center p-6 animate-fade-in mt-10">
+                <div class="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                    <span class="text-4xl">💜</span>
+                </div>
+                <h2 class="text-xl font-semibold text-gray-800 mb-2">How are you feeling?</h2>
+                <p class="text-sm text-gray-500 max-w-[200px]">Your conversations are private and safe here.</p>
             </div>
-            <h2 class="text-xl font-semibold text-gray-800 mb-2">How are you feeling?</h2>
-            <p class="text-sm text-gray-500 max-w-[200px]">Your conversations are private and safe here.</p>
-        </div>
-    `;
+        `;
+    }
 };
 
 // ============================================
@@ -133,7 +132,7 @@ const initUser = async () => {
     if (existing) {
         state.userId = existing.id;
         state.userName = existing.name;
-        // Only load history if we are starting up (not resetting)
+        // If we found a user, try to load history
         if (state.conversationHistory.length === 0) await loadHistory();
     } else {
         // Create new user
@@ -150,35 +149,33 @@ const loadHistory = async () => {
         .select('user_message, aura_response')
         .eq('user_id', state.userId)
         .order('created_at', { ascending: false })
-        .limit(10); // Increased limit slightly
+        .limit(10);
 
     if (error || !data || data.length === 0) return;
 
+    // We found history, so we remove the Welcome Screen
     const welcome = document.getElementById('welcomeScreen');
     if(welcome) welcome.remove();
 
-    // Reverse to show oldest -> newest
     const history = data.reverse();
     
     history.forEach(row => {
         state.conversationHistory.push({ role: 'user', content: row.user_message });
         state.conversationHistory.push({ role: 'assistant', content: row.aura_response });
         
-        // Render to UI without animation for history
         addMessage(row.user_message, true, false);
         addMessage(row.aura_response, false, false);
     });
     
-    // Restore score estimate based on history length
     state.auraScore = Math.min(100, 50 + (history.length * 2));
     updateAuraUI(0);
 
-    // If history exists, we don't show mood buttons, we show a "continue" state
+    // Overwrite the Mood Buttons with conversation options
     showOptions(["Continue", "New Topic"]);
 };
 
 // ============================================
-// 6. UI HELPERS (SECURE)
+// 6. UI HELPERS
 // ============================================
 const updateAuraUI = (delta) => {
     state.auraScore = Math.max(0, Math.min(100, state.auraScore + delta));
@@ -201,7 +198,6 @@ const addMessage = (text, isUser, animate = true) => {
         ? 'bg-purple-600 text-white rounded-[1.2rem] rounded-br-none shadow-md' 
         : 'bg-white text-gray-800 border border-gray-100 rounded-[1.2rem] rounded-bl-none shadow-sm';
 
-    // SECURITY FIX: Use textContent instead of innerHTML to prevent XSS
     const bubble = document.createElement('div');
     bubble.className = `max-w-[85%] px-5 py-3 text-[15px] leading-relaxed font-medium ${bubbleClass}`;
     bubble.textContent = text; 
@@ -209,7 +205,6 @@ const addMessage = (text, isUser, animate = true) => {
     msgWrapper.appendChild(bubble);
     chat.appendChild(msgWrapper);
     
-    // Improved scrolling
     setTimeout(() => {
         msgWrapper.scrollIntoView({ behavior: "smooth", block: "end" });
     }, 100);
@@ -219,7 +214,6 @@ const showOptions = (options) => {
     const container = document.getElementById('optionsContainer');
     container.innerHTML = ''; 
 
-    // Quick Reply Bubbles
     const bubblesDiv = document.createElement('div');
     bubblesDiv.className = 'grid grid-cols-1 gap-2 mb-2'; 
     
@@ -233,7 +227,6 @@ const showOptions = (options) => {
     });
     container.appendChild(bubblesDiv);
 
-    // Free Text Input
     const inputDiv = document.createElement('div');
     inputDiv.className = 'relative flex items-center animate-slide-up';
     inputDiv.innerHTML = `
@@ -248,7 +241,7 @@ const showOptions = (options) => {
         const input = document.getElementById('freeInput');
         const val = input.value;
         if(val) {
-            input.value = ''; // clear immediately for UX
+            input.value = ''; 
             handleUserResponse(val);
         }
     };
@@ -273,7 +266,6 @@ const showDataInput = (type) => {
         </div>
     `;
     
-    // Focus for UX
     setTimeout(() => {
         const el = document.getElementById('dataInput');
         if(el) el.focus();
@@ -287,7 +279,6 @@ const showDataInput = (type) => {
         else state.userPhone = val;
 
         if (db && state.userId) {
-            // Update logic
             await db.from('users').update({ [type]: val }).eq('id', state.userId);
         }
         
@@ -332,6 +323,7 @@ const handleMoodSelection = async (mood) => {
     state.auraScore = scores[mood] || 50;
     updateAuraUI(0);
     
+    // Remove Welcome Screen instantly on click
     const welcome = document.getElementById('welcomeScreen');
     if(welcome) welcome.remove();
 
@@ -347,7 +339,6 @@ const handleUserResponse = async (text, isSystemEvent = false) => {
         state.interactionCount++;
     }
 
-    // Loading State
     document.getElementById('optionsContainer').innerHTML = `
         <div class="flex justify-center items-center py-6 space-x-2 opacity-50">
             <div class="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
@@ -389,12 +380,17 @@ const handleUserResponse = async (text, isSystemEvent = false) => {
     }
 };
 
-// Init
+// ============================================
+// 8. INITIALIZATION
+// ============================================
 const init = async () => {
+    // 1. Immediately render Mood Buttons (Welcome screen is already in HTML)
+    // This solves the "First Glance" issue.
+    renderMoodButtons();
+
+    // 2. Check DB in background
     await initUser();
-    if (state.conversationHistory.length === 0) {
-        renderMoodButtons();
-    }
+    // initUser -> loadHistory() will overwrite the buttons if history is found.
 };
 
 init();
