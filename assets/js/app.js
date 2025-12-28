@@ -2,21 +2,15 @@
 // 1. CONFIGURATION
 // ============================================
 const SUPABASE_URL = "https://onmsmasusiadszoqicot.supabase.co"; 
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ubXNtYXN1c2lhZHN6b3FpY290Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0NTUwMjgsImV4cCI6MjA4MTAzMTAyOH0.jWcvdRHg_n3LTNL9Kd19AKff-DHJT8XfZ7l4_IIdagM"; // The one starting with eyJ...
-
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ubXNtYXN1c2lhZHN6b3FpY290Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0NTUwMjgsImV4cCI6MjA4MTAzMTAyOH0.jWcvdRHg_n3LTNL9Kd19AKff-DHJT8XfZ7l4_IIdagM"; 
 const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/rapid-function`;
-
-let db = null;
-if (window.supabase) {
-    try { db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } 
-    catch (e) { console.warn("Supabase Init Failed"); }
-}
 
 // ============================================
 // 2. STATE MANAGEMENT
 // ============================================
 let state = {
     userId: null,
+    // Generate new ID if none exists
     anonId: localStorage.getItem('aura_anon_id') || crypto.randomUUID(),
     currentMood: null,
     auraScore: 50,
@@ -27,12 +21,28 @@ let state = {
     conversationHistory: [] 
 };
 
+// Persist ID immediately
 localStorage.setItem('aura_anon_id', state.anonId);
+
+let db = null;
+if (window.supabase) {
+    try { 
+        // We pass the anon-id in headers so RLS policies work securely
+        db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+            global: { headers: { 'x-anon-id': state.anonId } }
+        }); 
+    } 
+    catch (e) { console.warn("Supabase Init Failed", e); }
+}
 
 // ============================================
 // 3. BACKEND CONNECTION
 // ============================================
 const callAuraBrain = async (prompt) => {
+    // Controller to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
     try {
         const response = await fetch(FUNCTION_URL, {
             method: "POST",
@@ -46,11 +56,15 @@ const callAuraBrain = async (prompt) => {
                 mood: state.currentMood || "neutral",
                 history: state.conversationHistory
             }),
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
+
         if (response.ok) return await response.json();
-        return null;
+        throw new Error("API Response not OK");
     } catch (err) {
-        console.error("Network Error:", err);
+        console.error("Brain Error:", err);
         return null;
     }
 };
@@ -59,21 +73,37 @@ const callAuraBrain = async (prompt) => {
 // 4. LOGIC & RESET
 // ============================================
 
-// A. Reset Function (New Start)
-window.resetSession = () => {
-    // 1. Reset RAM State (Keep userId/anonId, but clear context)
+window.resetSession = async () => {
+    // 1. Generate NEW Identity for a fresh start
+    state.anonId = crypto.randomUUID();
+    localStorage.setItem('aura_anon_id', state.anonId);
+    
+    // 2. Update DB Client with new header
+    if (window.supabase) {
+        db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+            global: { headers: { 'x-anon-id': state.anonId } }
+        });
+    }
+
+    // 3. Reset RAM State
+    state.userId = null;
+    state.userName = null;
+    state.userPhone = null;
     state.currentMood = null;
     state.auraScore = 50;
     state.interactionCount = 0;
-    state.conversationHistory = []; // Wipe memory
+    state.conversationHistory = [];
     state.askedForName = false;
     state.askedForPhone = false;
 
-    // 2. Clear UI
-    document.getElementById('chatMessages').innerHTML = ''; // Clear chat
-    updateAuraUI(0); // Reset score to 50
+    // 4. Clear UI
+    document.getElementById('chatMessages').innerHTML = ''; 
+    updateAuraUI(0);
 
-    // 3. Show Welcome & Moods
+    // 5. Create new user entry in background
+    await initUser();
+
+    // 6. Show Welcome
     renderWelcomeScreen();
     renderMoodButtons();
 };
@@ -81,7 +111,7 @@ window.resetSession = () => {
 const renderWelcomeScreen = () => {
     const chat = document.getElementById('chatMessages');
     chat.innerHTML = `
-        <div id="welcomeScreen" class="h-full flex flex-col justify-center items-center text-center p-6 animate-fade-in">
+        <div id="welcomeScreen" class="h-full flex flex-col justify-center items-center text-center p-6 animate-fade-in mt-10">
             <div class="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
                 <span class="text-4xl">💜</span>
             </div>
@@ -96,15 +126,17 @@ const renderWelcomeScreen = () => {
 // ============================================
 const initUser = async () => {
     if (!db) return;
+    
+    // Check if user exists for this anon_id
     const { data: existing } = await db.from('users').select('id, name').eq('anon_id', state.anonId).single();
     
     if (existing) {
         state.userId = existing.id;
         state.userName = existing.name;
-        // Only load history if we are NOT in a "Reset" state (on Page Load only)
-        // Since this function runs on page load, we default to loading history.
-        await loadHistory();
+        // Only load history if we are starting up (not resetting)
+        if (state.conversationHistory.length === 0) await loadHistory();
     } else {
+        // Create new user
         const { data, error } = await db.from('users').insert([{ anon_id: state.anonId }]).select();
         if (!error && data?.[0]) state.userId = data[0].id;
     }
@@ -112,32 +144,41 @@ const initUser = async () => {
 
 const loadHistory = async () => {
     if (!db || !state.userId) return;
-    const { data, error } = await db.from('conversations').select('user_message, aura_response').eq('user_id', state.userId).order('created_at', { ascending: false }).limit(8);
+    
+    const { data, error } = await db
+        .from('conversations')
+        .select('user_message, aura_response')
+        .eq('user_id', state.userId)
+        .order('created_at', { ascending: false })
+        .limit(10); // Increased limit slightly
 
     if (error || !data || data.length === 0) return;
 
-    // If history exists, remove welcome screen immediately
     const welcome = document.getElementById('welcomeScreen');
     if(welcome) welcome.remove();
 
+    // Reverse to show oldest -> newest
     const history = data.reverse();
+    
     history.forEach(row => {
         state.conversationHistory.push({ role: 'user', content: row.user_message });
         state.conversationHistory.push({ role: 'assistant', content: row.aura_response });
-    });
-
-    history.slice(-2).forEach(row => {
-        addMessage(row.user_message, true);
-        addMessage(row.aura_response, false);
+        
+        // Render to UI without animation for history
+        addMessage(row.user_message, true, false);
+        addMessage(row.aura_response, false, false);
     });
     
-    // If we have history, user has already picked a mood previously.
-    // We can infer they want to continue, OR show moods if they want to switch.
-    // For now, let's keep the mood buttons visible so they can continue or switch.
+    // Restore score estimate based on history length
+    state.auraScore = Math.min(100, 50 + (history.length * 2));
+    updateAuraUI(0);
+
+    // If history exists, we don't show mood buttons, we show a "continue" state
+    showOptions(["Continue", "New Topic"]);
 };
 
 // ============================================
-// 6. UI HELPERS
+// 6. UI HELPERS (SECURE)
 // ============================================
 const updateAuraUI = (delta) => {
     state.auraScore = Math.max(0, Math.min(100, state.auraScore + delta));
@@ -147,39 +188,40 @@ const updateAuraUI = (delta) => {
     if (meterEl) meterEl.style.width = `${state.auraScore}%`;
 };
 
-const addMessage = (text, isUser) => {
+const addMessage = (text, isUser, animate = true) => {
     const welcome = document.getElementById('welcomeScreen');
-    if (welcome) welcome.remove(); // Ensure welcome screen is gone
+    if (welcome) welcome.remove();
 
     const chat = document.getElementById('chatMessages');
-    const msgDiv = document.createElement('div');
+    const msgWrapper = document.createElement('div');
     
-    // Improved bubble styling
-    msgDiv.className = `flex ${isUser ? 'justify-end' : 'justify-start'} animate-slide-up w-full`;
+    msgWrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'} w-full ${animate ? 'animate-slide-up' : ''}`;
+    
     const bubbleClass = isUser 
         ? 'bg-purple-600 text-white rounded-[1.2rem] rounded-br-none shadow-md' 
         : 'bg-white text-gray-800 border border-gray-100 rounded-[1.2rem] rounded-bl-none shadow-sm';
 
-    msgDiv.innerHTML = `
-        <div class="max-w-[85%] px-5 py-3 text-[15px] leading-relaxed font-medium ${bubbleClass}">
-            ${text}
-        </div>
-    `;
+    // SECURITY FIX: Use textContent instead of innerHTML to prevent XSS
+    const bubble = document.createElement('div');
+    bubble.className = `max-w-[85%] px-5 py-3 text-[15px] leading-relaxed font-medium ${bubbleClass}`;
+    bubble.textContent = text; 
+
+    msgWrapper.appendChild(bubble);
+    chat.appendChild(msgWrapper);
     
-    chat.appendChild(msgDiv);
-    // Auto-scroll to bottom
+    // Improved scrolling
     setTimeout(() => {
-        chat.scrollTop = chat.scrollHeight;
-    }, 50);
+        msgWrapper.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 100);
 };
 
 const showOptions = (options) => {
     const container = document.getElementById('optionsContainer');
     container.innerHTML = ''; 
 
-    // Container for bubbles (Grid layout for better space usage)
+    // Quick Reply Bubbles
     const bubblesDiv = document.createElement('div');
-    bubblesDiv.className = 'grid grid-cols-1 gap-2'; 
+    bubblesDiv.className = 'grid grid-cols-1 gap-2 mb-2'; 
     
     options.forEach((optStr, idx) => {
         const btn = document.createElement('button');
@@ -193,18 +235,22 @@ const showOptions = (options) => {
 
     // Free Text Input
     const inputDiv = document.createElement('div');
-    inputDiv.className = 'relative flex items-center mt-2 animate-slide-up';
+    inputDiv.className = 'relative flex items-center animate-slide-up';
     inputDiv.innerHTML = `
-        <input type="text" id="freeInput" placeholder="Type..." class="w-full bg-gray-50 text-gray-800 rounded-full py-3.5 pl-5 pr-12 border border-gray-200 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none text-sm transition-all shadow-inner" />
-        <button id="sendBtn" class="absolute right-1.5 p-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-all shadow-md">
+        <input type="text" id="freeInput" placeholder="Type here..." autocomplete="off" class="w-full bg-gray-50 text-gray-800 rounded-full py-3.5 pl-5 pr-12 border border-gray-200 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none text-sm transition-all shadow-inner" />
+        <button id="sendBtn" class="absolute right-1.5 p-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-all shadow-md active:scale-90">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
         </button>
     `;
     container.appendChild(inputDiv);
 
     const handleSend = () => {
-        const val = document.getElementById('freeInput').value;
-        if(val) handleUserResponse(val);
+        const input = document.getElementById('freeInput');
+        const val = input.value;
+        if(val) {
+            input.value = ''; // clear immediately for UX
+            handleUserResponse(val);
+        }
     };
     
     document.getElementById('sendBtn').onclick = handleSend;
@@ -226,7 +272,12 @@ const showDataInput = (type) => {
             <button id="skipBtn" class="text-xs text-center text-gray-400 py-2 hover:text-gray-600">Skip for now</button>
         </div>
     `;
-    setTimeout(() => document.getElementById('dataInput').focus(), 100);
+    
+    // Focus for UX
+    setTimeout(() => {
+        const el = document.getElementById('dataInput');
+        if(el) el.focus();
+    }, 100);
 
     const handleSave = async () => {
         const val = document.getElementById('dataInput').value;
@@ -235,10 +286,13 @@ const showDataInput = (type) => {
         if (type === 'name') state.userName = val;
         else state.userPhone = val;
 
-        if (db && state.userId) await db.from('users').update({ [type]: val }).eq('id', state.userId);
+        if (db && state.userId) {
+            // Update logic
+            await db.from('users').update({ [type]: val }).eq('id', state.userId);
+        }
         
-        addMessage(val, true); // Show user input
-        handleUserResponse(`My ${type} is ${val}`, true); // Inform AI silently
+        addMessage(val, true); 
+        handleUserResponse(`My ${type} is ${val}`, true); 
     };
 
     document.getElementById('dataBtn').onclick = handleSave;
@@ -278,7 +332,6 @@ const handleMoodSelection = async (mood) => {
     state.auraScore = scores[mood] || 50;
     updateAuraUI(0);
     
-    // Remove welcome screen
     const welcome = document.getElementById('welcomeScreen');
     if(welcome) welcome.remove();
 
@@ -296,14 +349,14 @@ const handleUserResponse = async (text, isSystemEvent = false) => {
 
     // Loading State
     document.getElementById('optionsContainer').innerHTML = `
-        <div class="flex justify-center items-center py-4 space-x-2 opacity-50">
+        <div class="flex justify-center items-center py-6 space-x-2 opacity-50">
             <div class="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
             <div class="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
             <div class="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
         </div>
     `;
 
-    // Trigger Checks (Name/Phone)
+    // Progressive Profiling Triggers
     if (state.interactionCount === 3 && !state.askedForName && !state.userName) {
         state.askedForName = true;
         setTimeout(() => {
@@ -315,7 +368,7 @@ const handleUserResponse = async (text, isSystemEvent = false) => {
     if (state.interactionCount === 6 && !state.askedForPhone && !state.userPhone) {
         state.askedForPhone = true;
         setTimeout(() => {
-            addMessage("You are doing great work, Can you share me phone no. ?", false);
+            addMessage("You are doing great work. Can I get your number for weekly insights?", false);
             showDataInput('phone');
         }, 800);
         return;
@@ -331,17 +384,14 @@ const handleUserResponse = async (text, isSystemEvent = false) => {
         const safeChoices = aiResult.choices && aiResult.choices.length > 0 ? aiResult.choices : ["Tell me more", "I see", "Continue"];
         showOptions(safeChoices);
     } else {
-        addMessage("Connection weak. Try again?", false);
-        showOptions(["Retry"]);
+        addMessage("My connection feels weak. Could you say that again?", false);
+        showOptions(["Retry", "Skip"]);
     }
 };
 
 // Init
 const init = async () => {
     await initUser();
-    // Use the function to render initial buttons
-    // If history was loaded, initUser() handles the UI state. 
-    // If NO history, we show moods:
     if (state.conversationHistory.length === 0) {
         renderMoodButtons();
     }
