@@ -17,9 +17,10 @@
     <style>
         @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .animate-slide-up { animation: slideUp 0.4s ease-out; }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
         
+        /* Hide scrollbar but allow scrolling */
         #chatMessages::-webkit-scrollbar { width: 4px; }
         #chatMessages::-webkit-scrollbar-thumb { background-color: rgba(168, 85, 247, 0.2); border-radius: 4px; }
     </style>
@@ -53,52 +54,15 @@
             </div>
         </div>
 
-        <div id="chatMessages" class="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 space-y-4 scroll-smooth bg-slate-50 relative">
-            <div id="welcomeScreen" class="h-full flex flex-col justify-center items-center text-center p-6 animate-fade-in">
-                <div class="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                    <span class="text-4xl">💜</span>
-                </div>
-                <h2 class="text-xl font-semibold text-gray-800 mb-2">How are you feeling?</h2>
-                <p class="text-sm text-gray-500 max-w-[200px]">Your conversations are private and safe here.</p>
+        <div id="chatMessages" class="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 space-y-4 scroll-smooth bg-slate-50 relative pb-24">
             </div>
-        </div>
 
-        <div class="flex-none bg-white border-t border-purple-100 p-4 pb-6 z-20 shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">
+        <div class="flex-none bg-white border-t border-purple-100 p-4 pb-6 z-20 shadow-[0_-5px_20px_rgba(0,0,0,0.02)] min-h-[100px]">
             <div id="optionsContainer" class="flex flex-col gap-3">
                 </div>
         </div>
     </div>
 
     <script src="assets/js/app.js"></script>
-
-    <!-- <script>
-        let deferredPrompt;
-
-        // 1. Capture the event when Chrome says "Hey, this can be installed!"
-        window.addEventListener('beforeinstallprompt', (e) => {
-            // Prevent Chrome 67 and earlier from automatically showing the prompt
-            e.preventDefault();
-            // Stash the event so it can be triggered later.
-            deferredPrompt = e;
-            
-            // OPTIONAL: We can trigger this on the very first tap anywhere on screen
-            // because browsers require a user interaction to show the prompt.
-            document.body.addEventListener('click', triggerInstall, { once: true });
-        });
-
-        function triggerInstall() {
-            if (deferredPrompt) {
-                // Show the native "Add to Home Screen" prompt
-                deferredPrompt.prompt();
-                // Wait for the user to respond to the prompt
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        console.log('User accepted the A2HS prompt');
-                    }
-                    deferredPrompt = null;
-                });
-            }
-        }
-    </script> -->
 </body>
 </html>
